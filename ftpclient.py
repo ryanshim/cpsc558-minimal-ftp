@@ -4,9 +4,9 @@ purposes. Current commands supported:
     put <filename>: send the file to the server specified by filename.
     cd <path>: change the current working directory to the specified path.
     ls: list the files in the current working directory in the server.
+    pwd: get the parent working directory
 """
 import socket
-import struct
 import protocol
 import argparse
 import subprocess
@@ -72,6 +72,10 @@ class FTPClient:
                 protocol.send_msg(self.client_sock, cmd.encode())
                 protocol.send_msg(self.client_sock, path.encode())
 
+            elif cmd == 'pwd' and len(tokens) == 1:
+                protocol.send_msg(self.client_sock, cmd.encode())
+                self.get_pwd()
+
             elif cmd == 'exit':
                 protocol.send_msg(self.client_sock, cmd.encode())
                 self.client_sock.close()
@@ -82,6 +86,23 @@ class FTPClient:
         """
         tokens = input(">>> ").split(' ')
         return tokens
+
+    def get_pwd(self):
+        """ Receives the output of cwd from the server.
+        """
+        ephem_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ephem_sock.bind(('', 0))
+        ephem_sock.listen(1)
+
+        ephem_name = ephem_sock.getsockname()
+        protocol.send_msg(self.client_sock, str(ephem_name[1]).encode())
+
+        conn, addr = ephem_sock.accept()
+        pwd_output = protocol.recv_msg(conn).decode()
+        print(pwd_output)
+        
+        conn.close()
+        ephem_sock.close()
 
     def list_files(self):
         """ Receives the output of ls in the cwd from the server.

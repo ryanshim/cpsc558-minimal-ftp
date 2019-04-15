@@ -4,10 +4,9 @@ purposes. Current commands supported:
     put <filename>: send the file to the server specified by filename.
     cd <path>: change the current working directory to the specified path.
     ls: list the files in the current working directory in the server.
+    pwd: get the parent working directory
 """
 import socket
-import struct
-import os
 import protocol
 import subprocess
 import hashlib
@@ -69,6 +68,10 @@ class FTPServer:
                     target_path = protocol.recv_msg(client_socket).decode()
                     self.change_dir(target_path)
 
+                elif cmd == 'pwd':
+                    data_port = protocol.recv_msg(client_socket).decode()
+                    self.send_pwd(client_addr[0], int(data_port))
+
                 elif cmd == 'exit':
                     break
 
@@ -84,6 +87,21 @@ class FTPServer:
         except Exception as e:
             print(e)
             return
+
+    def send_pwd(self, client_addr, ephem_port):
+        """ Send the output of pwd to the client.
+        @param client_addr: IP address of the client
+        @param ephem_port: ephemeral socket port number
+        """
+        try:
+            output = subprocess.Popen('pwd', stdout=subprocess.PIPE).communicate()[0]
+        except subprocess.SubprocessError as e:
+            print(e)
+            return
+        ephem_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ephem_sock.connect((client_addr, ephem_port))
+        protocol.send_msg(ephem_sock, output)
+        ephem_sock.close()
 
     def list_files(self, client_addr, ephem_port):
         """ Send the output of ls in the cwd to the client.
